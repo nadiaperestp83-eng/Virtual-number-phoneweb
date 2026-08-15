@@ -33,6 +33,21 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Fix para injetar o namespace nos módulos legados (como o isar_flutter_libs) no AGP 8+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.extensions.configure("android") {
+                val namespaceProp = this.javaClass.getMethod("getNamespace").invoke(this)
+                if (namespaceProp == null) {
+                    val group = project.group.toString()
+                    this.javaClass.getMethod("setNamespace", String::class.java).invoke(this, group)
+                }
+            }
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

@@ -8,7 +8,7 @@ import '../domain/local_virtual_number.dart';
 final numberRepositoryProvider = Provider<NumberRepository>((ref) {
   return NumberRepository(
     supabase: ref.watch(supabaseClientProvider),
-    isar: ref.watch(localDbProvider),
+    localDb: ref.watch(localDbProvider),
   );
 });
 

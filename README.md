@@ -1,286 +1,66 @@
-# MNSCloud PhoneWeb
-
-MNSCloud PhoneWeb is a public, standalone Flutter softphone focused on
-WebRTC-based calling through SIP over secure WebSocket.
-
-The project is intentionally backend-independent at the application level:
-users can manually configure WebRTC accounts from public or private providers
-without using an MNSCloud login, REST API, or proprietary provisioning service.
-
-PhoneWeb is designed to be reusable as:
-
-- a standalone Flutter app
-- a Git submodule
-- a private or public package dependency
-- a monorepo module
-- a future white-label app
-- a future SDK-style integration layer
-
-## Scope
-
-Initial scope:
-
-- WebRTC softphone for SIP over WebSocket/WSS
-- manual account configuration
-- multiple WebRTC accounts
-- account registration and unregister
-- outgoing calls
-- incoming calls while the app is running
-- answer, reject, hang up
-- mute, hold, DTMF, speaker route where supported
-- local call history
-- native address book sync on Android, iOS, and macOS
-- secure credential storage
-- diagnostics and sanitized logs
-
-Out of scope for the initial public version:
-
-- traditional SIP over UDP, TCP, or TLS without WebSocket
-- Linphone SDK
-- PJSIP
-- proprietary backend provisioning
-- guaranteed closed-app incoming calls without push infrastructure
-- storing provider secrets outside the user's device
-
-Traditional SIP may be added in the future as a separate optional native engine
-package, after licensing and distribution requirements are reviewed.
-
-## Target Platforms
-
-Planned Flutter targets:
-
-- Android
-- iOS
-- Web
-- Windows
-- macOS
-- Linux
-
-Platform support depends on Flutter, `flutter_webrtc`, `sip_ua`, and each
-operating system's media, permission, background execution, and packaging
-rules. See [Platform Limitations](docs/platform-limitations.md).
-
-## Recommended Stack
-
-- Flutter
-- Dart
-- `flutter_webrtc`
-- `sip_ua`
-- `flutter_contacts`
-- `flutter_secure_storage`
-- `permission_handler`
-- `go_router`
-- Riverpod or BLoC for state management
-- Drift or Isar for local call history
-- `freezed` and `json_serializable` for immutable models
-- local sanitized diagnostics logger
-
-## Progressive Web App
-
-PhoneWeb is installable as a Progressive Web App when hosted over HTTPS. The
-source manifest uses relative `id`, `scope`, and `start_url` values so the same
-app remains portable across providers that host it at the domain root or under a
-path.
-
-For the MNSCloud webapps path, build with:
-
-```bash
-flutter build web --release --base-href /phoneweb/
-```
-
-The generated Flutter service worker caches the static app shell. SIP
-registration, calls, diagnostics, WSS, STUN, TURN, and media still require
-network connectivity.
-
-See [Progressive Web App](docs/pwa.md) for hosting and installation details.
-
-## SIP UA Dependency
-
-PhoneWeb currently vendors `sip_ua` under `third_party/sip_ua` with a minimal
-Web JS interop compatibility patch for the Flutter/Dart toolchain used by this
-repository. Keep the vendored package free of examples, secrets, and local
-build output. Replace it with the upstream package again once the upstream
-release compiles cleanly for Flutter Web.
-
-## WebRTC Provider Requirements
-
-A provider must expose SIP over WebSocket/WebRTC. Typical requirements:
-
-- public or reachable WSS endpoint, for example `wss://pbx.example.com/ws`
-- valid TLS certificate for WSS
-- SIP domain, for example `pbx.example.com`
-- extension or SIP username
-- password or equivalent SIP credential
-- DTLS-SRTP media support
-- ICE support
-- STUN and TURN where NAT traversal requires it
-
-Compatible server families when configured for WebRTC:
-
-- Asterisk
-- FreeSWITCH
-- Kamailio
-- OpenSIPS
-- WebRTC-capable hosted PBX providers
-
-Not compatible in the initial scope:
-
-- SIP providers that only expose `sip.example.com:5060` over UDP
-- SIP providers that only expose `5061` TLS without WebSocket
-- legacy PBX systems without WebRTC/WSS support
-
-## Repository Layout
-
-```text
-mnscloud-phoneweb/
-  README.md
-  CONTRIBUTING.md
-  SECURITY.md
-  SKILL.md
-  AGENTS.md
-  CHANGELOG.md
-  LICENSE
-  pubspec.yaml
-  analysis_options.yaml
-  .github/
-    CODEOWNERS
-    pull_request_template.md
-    workflows/
-      ci.yml
-  docs/
-    architecture.md
-    account-model.md
-    call-flows.md
-    platform-limitations.md
-    security.md
-    diagnostics.md
-    provider-compatibility.md
-    roadmap.md
-    sdk-strategy.md
-  lib/
-    main.dart
-    src/
-      account/
-      contacts/
-      voip/
-      call/
-      call_history/
-      settings/
-      audio/
-      diagnostics/
-      shared/
-  test/
-```
-
-The initial layout keeps the repository runnable as an app while preserving
-clean boundaries that can later be split into Dart/Flutter packages.
-
-## Architecture Summary
-
-```text
-Flutter UI
-  |
-  v
-Presentation controllers / view models
-  |
-  v
-Application use cases
-  |
-  v
-Domain interfaces and entities
-  |
-  v
-Infrastructure adapters
-  |
-  +-- sip_ua WebRTC engine
-  +-- flutter_webrtc media layer
-  +-- flutter_contacts native address book adapter
-  +-- secure credential storage
-  +-- local call history
-  +-- diagnostics logger
-```
-
-See [Architecture](docs/architecture.md) for the complete design.
-
-## Account Example
-
-```text
-Account name: Company X
-Display name: Support
-SIP username: 1001
-SIP domain: pbx.example.com
-WSS URL: wss://pbx.example.com/ws
-STUN: stun:stun.example.com:3478
-TURN: turns:turn.example.com:5349
-```
-
-Passwords and TURN credentials must be stored through secure device storage and
-must never be written to logs, screenshots, examples, or issue reports.
-
-## Development
-
-Install Flutter from the official Flutter documentation and verify your local
-toolchain:
-
-```bash
-flutter doctor
-```
-
-Install dependencies:
-
-```bash
-flutter pub get
-```
-
-Run static analysis:
-
-```bash
-flutter analyze
-```
-
-Run tests:
-
-```bash
-flutter test
-```
-
-Run the app:
-
-```bash
-flutter run
-```
-
-Platform-specific setup is documented in [Platform Limitations](docs/platform-limitations.md).
-
-## Public Repository Boundary
-
-This repository is public and must remain safe for customers, partners, and
-external developers.
-
-Never commit:
-
-- real SIP passwords
-- TURN credentials
-- API tokens
-- private keys
-- customer data
-- production-only domains or IP addresses
-- private infrastructure topology
-- hidden bypass logic
-- MNSCloud internal business rules
-
-Use placeholder examples such as `pbx.example.com`, `wss://pbx.example.com/ws`,
-`1001`, and `<password>`.
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Account Model](docs/account-model.md)
-- [Call Flows](docs/call-flows.md)
-- [Platform Limitations](docs/platform-limitations.md)
-- [Security](docs/security.md)
-- [Diagnostics](docs/diagnostics.md)
-- [Progressive Web App](docs/pwa.md)
-- [Provider Compatibility](docs/provider-compatibility.md)
-- [SDK Strategy](docs/sdk-strategy.md)
-- [Roadmap](docs/roadmap.md)
+VNumero App — Fase 1 (Estrutura Base + Supabase)
+Módulos novos (account, numbers) organizados para encaixar dentro do
+layout de pastas do fork manaoscloud/mnscloud-phoneweb
+(lib/src/{account,contacts,voip,call,call_history,settings,audio,diagnostics,shared}).
+Importante: este pacote não recria voip/, call/, call_history/,
+contacts/, settings/, audio/ nem diagnostics/ — esses continuam
+vindo do clone real do fork. Aqui só entram os módulos novos (account
+com login real + escolha de número, e numbers com o pool/expiração) e
+os ajustes em shared/ (bottom nav) e core/ (Supabase, Isar, rotas).
+O que está pronto nesta fase
+Login real por e-mail/senha (Supabase Auth — signUp /
+signInWithPassword), sem sessão anônima. Ver
+lib/src/account/presentation/login_screen.dart.
+Trigger no Postgres que cria a linha em profiles automaticamente no
+cadastro (handle_new_user).
+Schema SQL completo (supabase/schema.sql):
+profiles, virtual_numbers, messages (tabela já criada p/ Fase 2)
+Funções: generate_number_pool, list_available_numbers,
+claim_virtual_number (atômica, evita 2 usuários pegarem o mesmo
+número), touch_my_number, expire_inactive_numbers (regra dos 7
+dias)
+RLS habilitado em todas as tabelas
+Onboarding pós-login: escolha de DDD → 3-4 números sugeridos → ativação
+Cache local do número ativo em Isar (LocalVirtualNumber)
+AppShell com as 5 abas (Discador, Mensagens, Conta, Histórico,
+Contatos)
+Redirecionamento reativo: go_router escuta onAuthStateChange do
+Supabase e manda o usuário para /login, /onboarding ou /app
+automaticamente
+Todos os números tratados como String, nunca numérico (ver
+NumberFormatter)
+O que fica para as próximas fases
+Fase 2 — Chat/SMS interno: tela de conversas real, Supabase
+Realtime na tabela messages, cache em Isar (LocalMessage).
+Fase 3 — VoIP App-to-App (WebRTC puro): sinalização via Supabase
+Realtime Broadcast (canal por número virtual), flutter_webrtc
+direto, sem SIP. Histórico de chamadas (LocalCallLogEntry).
+Job agendado (pg_cron ou Edge Function) chamando
+expire_inactive_numbers() diariamente.
+Integração real com o código de voip/, call/, call_history/,
+contacts/, settings/, audio/, diagnostics/ do fork (não
+reescrito aqui — ver nota no topo).
+Como rodar
+Clone o fork manaoscloud/mnscloud-phoneweb e copie estes arquivos
+por cima, respeitando os caminhos abaixo (todos relativos à raiz do
+projeto).
+Crie um projeto em https://supabase.com e rode supabase/schema.sql
+no SQL Editor.
+Em Authentication > Providers, deixe Email habilitado (padrão)
+e desabilite confirmação de e-mail obrigatória se quiser testar rápido
+(Authentication > Settings > "Confirm email" = off em dev).
+Popule o estoque de números (exemplo, DDD 35, 50 números):
+Sql
+Instale as dependências:
+Bash
+Gere os arquivos do Isar (obrigatório antes do primeiro build):
+Bash
+Rode o app apontando para o seu projeto Supabase:
+Bash
+Caminhos de todos os arquivos entregues
+Código
+Próximo passo sugerido
+Me diga se quer seguir para a Fase 2 (Chat/SMS) ou Fase 3 (VoIP
+WebRTC puro) — e, se puder, cole aqui o conteúdo real de
+lib/main.dart e lib/src/account/ do fork clonado, para eu editar em
+cima do código de verdade em vez de aproximar pela documentação.

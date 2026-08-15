@@ -1,11 +1,10 @@
 include: package:flutter_lints/flutter.yaml
 
-analyzer:
-  exclude:
-    - third_party/**
-
 linter:
   rules:
-    avoid_print: true
-    prefer_final_locals: true
-    unawaited_futures: true
+    prefer_single_quotes: true
+    always_declare_return_types: true
+
+analyzer:
+  errors:
+    todo: ignore

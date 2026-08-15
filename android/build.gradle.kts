@@ -33,16 +33,22 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Fix para injetar o namespace nos módulos legados (como o isar_flutter_libs) no AGP 8+
+// Fix: Injetar namespace no Isar (Compatibilidade Kotlin DSL para AGP 8+)
 subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty("android")) {
-            project.extensions.configure("android") {
-                val namespaceProp = this.javaClass.getMethod("getNamespace").invoke(this)
-                if (namespaceProp == null) {
-                    val group = project.group.toString()
-                    this.javaClass.getMethod("setNamespace", String::class.java).invoke(this, group)
+    afterEvaluate {
+        val proj = this
+        val androidExt = proj.extensions.findByName("android")
+        if (androidExt != null) {
+            try {
+                val clazz = androidExt::class.java
+                val getNamespaceMethod = clazz.getMethod("getNamespace")
+                val namespace = getNamespaceMethod.invoke(androidExt)
+                if (namespace == null) {
+                    val setNamespaceMethod = clazz.getMethod("setNamespace", String::class.java)
+                    setNamespaceMethod.invoke(androidExt, proj.group.toString())
                 }
+            } catch (e: Exception) {
+                // Ignora silenciosamente se o plugin não suportar namespace
             }
         }
     }

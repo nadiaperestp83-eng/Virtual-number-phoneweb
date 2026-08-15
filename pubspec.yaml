@@ -26,10 +26,7 @@ dependencies:
   # VoIP App-to-App (WebRTC puro, sem SIP — Fase 3)
   flutter_webrtc: ^0.11.5
 
-  # Usado por phoneweb_app.dart (código original do fork, preservado).
-  # ATENÇÃO: confirme a versão exata no pubspec.yaml real do fork antes
-  # de rodar `flutter pub get` — aqui é só um valor de partida.
-  sip_ua: ^0.5.13
+  
 
   # Chamadas recebidas em segundo plano (Fase 3 — push + tela nativa)
   firebase_core: ^3.6.0

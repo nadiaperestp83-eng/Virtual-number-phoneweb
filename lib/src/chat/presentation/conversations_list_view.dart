@@ -33,7 +33,7 @@ class ConversationsListView extends ConsumerWidget {
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
               ),
               IconButton(
-                icon: const Icon(Icons.edit_square_outlined),
+                icon: const Icon(Icons.add_comment_outlined),
                 tooltip: 'Nova conversa',
                 onPressed: () => _openNewConversationDialog(context, ref),
               ),

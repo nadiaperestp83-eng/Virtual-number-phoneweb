@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'phoneweb_app.dart';
 import 'src/account/presentation/ddd_selection_screen.dart';
 import 'src/account/presentation/login_screen.dart';
+import 'src/chat/application/chat_providers.dart';
 import 'src/core/env.dart';
 import 'src/core/local_db.dart';
 import 'src/core/supabase_providers.dart';
@@ -69,6 +70,9 @@ class VNumeroGate extends ConsumerWidget {
           return const _GateApp(home: DddSelectionScreen());
         }
         // Usuário logado + número ativo: entra no app real do fork.
+        // (efeito colateral: assina o Realtime de mensagens — ver
+        // chatBootstrapProvider)
+        ref.watch(chatBootstrapProvider);
         return const PhoneWebApp();
       },
     );

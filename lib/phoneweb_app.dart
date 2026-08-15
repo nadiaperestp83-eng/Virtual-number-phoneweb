@@ -3573,7 +3573,8 @@ class PanelTitle extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        ?action,
+        if (action != null) action,
+      
       ],
     );
   }

@@ -1,6 +1,6 @@
-import 'package:isar/isar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/local_db.dart';
 import '../domain/local_virtual_number.dart';
 import '../domain/number_formatter.dart';
 
@@ -30,10 +30,12 @@ class NumberOption {
 }
 
 class NumberRepository {
-  NumberRepository({required this.supabase, required this.isar});
+  NumberRepository({required this.supabase, required this.localDb});
 
   final SupabaseClient supabase;
-  final Isar isar;
+  final LocalDb localDb;
+
+  static const _activeKey = 'active';
 
   /// Busca 3-4 opções de número disponíveis para o DDD escolhido,
   /// via a função `list_available_numbers` (RPC) do Supabase.
@@ -53,7 +55,7 @@ class NumberRepository {
 
   /// Reivindica (ativa) um número escolhido pelo usuário, de forma
   /// atômica no backend (`claim_virtual_number`), e grava o resultado
-  /// no cache local (Isar) para acesso offline instantâneo.
+  /// no cache local (Hive) para acesso offline instantâneo.
   Future<LocalVirtualNumber> claimNumber(String numberOptionId) async {
     final response = await supabase.rpc(
       'claim_virtual_number',
@@ -73,16 +75,15 @@ class NumberRepository {
       lastInteractionAt: DateTime.parse(row['last_interaction_at'] as String),
     );
 
-    await isar.writeTxn(() async {
-      await isar.localVirtualNumbers.put(local);
-    });
-
+    await localDb.virtualNumberBox.put(_activeKey, local.toMap());
     return local;
   }
 
   /// Retorna o número ativo salvo localmente (ou null se não houver).
-  Future<LocalVirtualNumber?> getLocalActiveNumber() {
-    return isar.localVirtualNumbers.get(1);
+  Future<LocalVirtualNumber?> getLocalActiveNumber() async {
+    final raw = localDb.virtualNumberBox.get(_activeKey);
+    if (raw == null) return null;
+    return LocalVirtualNumber.fromMap(Map<String, dynamic>.from(raw));
   }
 
   /// Deve ser chamado sempre que o usuário envia/recebe chamada ou
@@ -93,10 +94,8 @@ class NumberRepository {
 
     final current = await getLocalActiveNumber();
     if (current != null) {
-      current.lastInteractionAt = DateTime.now();
-      await isar.writeTxn(() async {
-        await isar.localVirtualNumbers.put(current);
-      });
+      final updated = current.copyWith(lastInteractionAt: DateTime.now());
+      await localDb.virtualNumberBox.put(_activeKey, updated.toMap());
     }
   }
 }

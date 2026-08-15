@@ -10,7 +10,7 @@ import '../domain/local_message.dart';
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(
     supabase: ref.watch(supabaseClientProvider),
-    isar: ref.watch(localDbProvider),
+    localDb: ref.watch(localDbProvider),
     numberRepository: ref.watch(numberRepositoryProvider),
   );
 });

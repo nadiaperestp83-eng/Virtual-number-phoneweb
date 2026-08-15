@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../phoneweb_app.dart' show MobileEmptyTab;
+import '../../contacts/contacts_providers.dart';
 import '../../numbers/application/number_providers.dart';
 import '../../numbers/domain/number_formatter.dart';
 import '../application/chat_providers.dart';
@@ -181,6 +182,13 @@ class _ConversationTile extends ConsumerWidget {
     final hasUnread = conversation.unreadCount > 0;
     final colorScheme = Theme.of(context).colorScheme;
 
+    final contactsAsync = ref.watch(deviceContactsProvider);
+    final contactName = contactsAsync.maybeWhen(
+      data: (contacts) => resolveContactName(contacts, conversation.peerNumber),
+      orElse: () => null,
+    );
+    final title = contactName ?? displayNumber;
+
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
@@ -188,18 +196,17 @@ class _ConversationTile extends ConsumerWidget {
         radius: 26,
         backgroundColor: colorScheme.primaryContainer,
         child: Text(
-          _initialsFromNumber(conversation.peerNumber),
+          contactName != null && contactName.isNotEmpty
+              ? contactName[0].toUpperCase()
+              : _initialsFromNumber(conversation.peerNumber),
           style: TextStyle(
             color: colorScheme.onPrimaryContainer,
             fontWeight: FontWeight.w700,
           ),
         ),
       ),
-      // TODO Fase 3: trocar `displayNumber` pelo nome do contato quando
-      // o número bater com um `PhoneContact` salvo (integração pendente,
-      // combinada para depois).
       title: Text(
-        displayNumber,
+        title,
         style: TextStyle(
           fontWeight: hasUnread ? FontWeight.w800 : FontWeight.w500,
         ),

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sip_ua/sip_ua.dart';
 
 import 'src/account/webrtc_account.dart';
 import 'src/audio/keypad_tone_player.dart';
+import 'src/chat/application/chat_providers.dart';
+import 'src/chat/presentation/chat_thread_screen.dart';
 import 'src/chat/presentation/conversations_list_view.dart';
 import 'src/contacts/native_contacts_repository.dart';
+import 'src/numbers/domain/number_formatter.dart';
 import 'src/contacts/phone_contact.dart';
 import 'src/storage/standalone_phoneweb_store.dart';
 import 'src/version/runtime_version.dart';
@@ -1637,6 +1641,17 @@ class _MobileContactsViewState extends State<MobileContactsView> {
                               onPressed: () => widget.onEditContact(contact),
                               icon: const Icon(Icons.edit_outlined),
                             ),
+                            // VNumero: inicia uma conversa com este
+                            // contato, se o número dele bater com um
+                            // número virtual ativo na rede.
+                            Consumer(
+                              builder: (context, ref, _) => IconButton(
+                                tooltip: 'Enviar mensagem',
+                                onPressed: () =>
+                                    _openChatWithContact(context, ref, contact),
+                                icon: const Icon(Icons.chat_bubble_outline),
+                              ),
+                            ),
                             IconButton(
                               onPressed: () => widget.onDialContact(contact),
                               icon: const Icon(Icons.call_outlined),
@@ -1651,6 +1666,45 @@ class _MobileContactsViewState extends State<MobileContactsView> {
       ),
     );
   }
+}
+
+/// VNumero: valida se o número do contato é um número virtual ativo na
+/// rede e, se for, abre a conversa (ou navega até a existente).
+Future<void> _openChatWithContact(
+  BuildContext context,
+  WidgetRef ref,
+  PhoneContact contact,
+) async {
+  final raw = NumberFormatter.onlyDigits(contact.number);
+
+  if (raw.length != 11) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Esse contato não tem um número virtual da rede.'),
+      ),
+    );
+    return;
+  }
+
+  final chatRepo = ref.read(chatRepositoryProvider);
+  final ownerId = await chatRepo.resolveOwnerId(raw);
+
+  if (!context.mounted) return;
+
+  if (ownerId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Esse número não está ativo na rede no momento.'),
+      ),
+    );
+    return;
+  }
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ChatThreadScreen(peerNumber: raw, peerUserId: ownerId),
+    ),
+  );
 }
 
 class MobileHistoryView extends StatefulWidget {
@@ -3573,8 +3627,7 @@ class PanelTitle extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        if (action != null) action,
-      
+        if (action != null) action!,
       ],
     );
   }

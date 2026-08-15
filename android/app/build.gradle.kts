@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "cloud.manaos.mnscloud.phoneweb"
-    compileSdk = 34 // Alterado de flutter.compileSdkVersion para 34 fixo
+    compileSdk = 36 // Atualizado para 36 conforme exigido pelos plugins
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -15,14 +15,9 @@ android {
     }
 
     defaultConfig {
-
-        // com.nvirtual.labs), como combinado. `namespace` acima NÃO foi
-        // tocado — não precisa bater com o applicationId, e mexer nele
-        // arriscaria quebrar referências de pacote no código nativo
-        // (MainActivity etc.).
         applicationId = "com.nvirtual.labs"
         minSdk = flutter.minSdkVersion
-        targetSdk = 34 // Alinhado com o compileSdk
+        targetSdk = 36 // Alinhado com o compileSdk
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -45,8 +40,4 @@ flutter {
     source = "../.."
 }
 
-// VNumero (Fase 3 — push de chamada): aplica o plugin do Google
-// Services via a forma clássica `apply(plugin = ...)`, que funciona em
-// cima do `classpath` declarado no `android/build.gradle.kts` sem
-// precisar mexer no `settings.gradle.kts` (que não vi ainda).
 apply(plugin = "com.google.gms.google-services")

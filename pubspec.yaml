@@ -3,7 +3,7 @@ description: >
   Número Virtual App-to-App com Chamadas (WebRTC) e Mensagens.
   Base do softphone adaptada de manaoscloud/mnscloud-phoneweb.
 publish_to: "none"
-version: 0.1.0
+version: 0.1.28
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

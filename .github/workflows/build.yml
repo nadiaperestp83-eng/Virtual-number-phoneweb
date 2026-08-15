@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # google-services.json NÃO fica no repositório (segredo do
+      # Firebase). É escrito aqui a partir de um GitHub Secret,
+      # exatamente no caminho que o plugin do Google Services espera.
+      - name: Write google-services.json
+        run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Gera os arquivos *.g.dart do Isar (LocalVirtualNumber,
+      # LocalMessage) — build falha sem isso.
+      - name: Generate Isar code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build APK
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnumero-app-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14

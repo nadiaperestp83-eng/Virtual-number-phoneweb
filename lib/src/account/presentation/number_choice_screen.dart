@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../numbers/application/number_providers.dart';
 import '../../numbers/data/number_repository.dart';
@@ -67,10 +66,10 @@ class NumberChoiceScreen extends ConsumerWidget {
     final repo = ref.read(numberRepositoryProvider);
     try {
       await repo.claimNumber(option.id);
+      // Não navegamos manualmente: VNumeroGate (main.dart) observa
+      // activeNumberProvider e troca a tela inteira para o PhoneWebApp
+      // original assim que o número ativo aparece no cache local.
       ref.invalidate(activeNumberProvider);
-      if (context.mounted) {
-        context.go('/app');
-      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

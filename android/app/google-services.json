@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "271497342570",
+    "project_id": "nvirtual-81c58",
+    "storage_bucket": "nvirtual-81c58.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:271497342570:android:b2b18eb15edc721c94e413",
+        "android_client_info": {
+          "package_name": "com.nvirtual.labs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqcAAABCBVtlbhG45DFIoGLjgfv4i94Ro"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,17 +1,12 @@
-import 'package:isar/isar.dart';
-
-part 'local_virtual_number.g.dart';
-
 /// Representa, localmente, o número virtual vinculado a este aparelho.
 ///
-/// Existe no máximo 1 registro ativo por vez (id fixo = 1), já que cada
-/// aparelho tem apenas um número virtual ativo por sua vez.
+/// Guardado no Hive como `Map<String, dynamic>` puro — sem
+/// `TypeAdapter` gerado, ver `local_db.dart` para o porquê.
 ///
-/// IMPORTANTE: [number] e [ddd] são sempre String — nunca armazenar como
-/// int (ver NumberFormatter para a regra completa).
-@collection
+/// IMPORTANTE: [number] e [ddd] são sempre String — nunca armazenar
+/// como int (ver NumberFormatter para a regra completa).
 class LocalVirtualNumber {
-  LocalVirtualNumber({
+  const LocalVirtualNumber({
     required this.remoteId,
     required this.ddd,
     required this.number,
@@ -20,23 +15,52 @@ class LocalVirtualNumber {
     required this.lastInteractionAt,
   });
 
-  /// Isar exige um id numérico; usamos sempre 1 (registro único).
-  Id id = 1;
-
   /// UUID do registro em `public.virtual_numbers` no Supabase.
-  @Index(unique: true)
-  late String remoteId;
+  final String remoteId;
 
   /// DDD como String (ex: "35"). Nunca int.
-  late String ddd;
+  final String ddd;
 
   /// Número bruto, somente dígitos, como String (ex: "35960001234").
-  late String number;
+  final String number;
 
   /// Cache do número já formatado para exibição: "(35) 96000-1234".
-  late String formatted;
+  final String formatted;
 
-  late DateTime activatedAt;
+  final DateTime activatedAt;
 
-  late DateTime lastInteractionAt;
+  final DateTime lastInteractionAt;
+
+  LocalVirtualNumber copyWith({DateTime? lastInteractionAt}) {
+    return LocalVirtualNumber(
+      remoteId: remoteId,
+      ddd: ddd,
+      number: number,
+      formatted: formatted,
+      activatedAt: activatedAt,
+      lastInteractionAt: lastInteractionAt ?? this.lastInteractionAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'remoteId': remoteId,
+      'ddd': ddd,
+      'number': number,
+      'formatted': formatted,
+      'activatedAt': activatedAt.toIso8601String(),
+      'lastInteractionAt': lastInteractionAt.toIso8601String(),
+    };
+  }
+
+  factory LocalVirtualNumber.fromMap(Map<String, dynamic> map) {
+    return LocalVirtualNumber(
+      remoteId: map['remoteId'] as String,
+      ddd: map['ddd'] as String,
+      number: map['number'] as String,
+      formatted: map['formatted'] as String,
+      activatedAt: DateTime.parse(map['activatedAt'] as String),
+      lastInteractionAt: DateTime.parse(map['lastInteractionAt'] as String),
+    );
+  }
 }

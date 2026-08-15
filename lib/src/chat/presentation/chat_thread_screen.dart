@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/supabase_providers.dart';
+import '../../contacts/contacts_providers.dart';
 import '../../numbers/application/number_providers.dart';
 import '../../numbers/domain/number_formatter.dart';
 import '../application/chat_providers.dart';
@@ -76,10 +77,15 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(threadMessagesProvider(widget.peerNumber));
+    final contactsAsync = ref.watch(deviceContactsProvider);
+    final contactName = contactsAsync.maybeWhen(
+      data: (contacts) => resolveContactName(contacts, widget.peerNumber),
+      orElse: () => null,
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(NumberFormatter.toDisplay(widget.peerNumber)),
+        title: Text(contactName ?? NumberFormatter.toDisplay(widget.peerNumber)),
       ),
       body: SafeArea(
         child: Column(

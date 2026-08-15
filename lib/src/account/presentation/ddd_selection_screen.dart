@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+
+import 'number_choice_screen.dart';
 
 /// Lista simplificada de DDDs brasileiros. Em produção, mova para um
 /// arquivo de dados próprio (ex: assets/ddd_brasil.json) agrupado por
@@ -34,7 +35,11 @@ class DddSelectionScreen extends StatelessWidget {
             child: ListTile(
               title: Text(option['label']!),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/onboarding/numbers/${option['ddd']}'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => NumberChoiceScreen(ddd: option['ddd']!),
+                ),
+              ),
             ),
           );
         },

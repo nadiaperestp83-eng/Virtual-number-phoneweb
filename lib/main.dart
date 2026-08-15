@@ -29,13 +29,14 @@ Future<void> main() async {
     anonKey: Env.supabaseAnonKey,
   );
 
-  // Banco local (Isar) — guarda o número virtual ativo neste aparelho.
-  final isar = await openLocalDb();
+  // Banco local (Hive CE) — guarda o número virtual ativo e o cache
+  // do chat neste aparelho.
+  final localDb = await openLocalDb();
 
   runApp(
     ProviderScope(
       overrides: [
-        localDbProvider.overrideWithValue(isar),
+        localDbProvider.overrideWithValue(localDb),
       ],
       child: const VNumeroGate(),
     ),

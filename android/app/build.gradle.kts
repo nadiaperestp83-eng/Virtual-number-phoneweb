@@ -15,7 +15,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.manaos.mnscloud.phoneweb"
+
+        // com.nvirtual.labs), como combinado. `namespace` acima NÃO foi
+        // tocado — não precisa bater com o applicationId, e mexer nele
+        // arriscaria quebrar referências de pacote no código nativo
+        // (MainActivity etc.).
+        applicationId = "com.nvirtual.labs"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -39,3 +44,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// VNumero (Fase 3 — push de chamada): aplica o plugin do Google
+// Services via a forma clássica `apply(plugin = ...)`, que funciona em
+// cima do `classpath` declarado no `android/build.gradle.kts` sem
+// precisar mexer no `settings.gradle.kts` (que não vi ainda).
+apply(plugin = "com.google.gms.google-services")

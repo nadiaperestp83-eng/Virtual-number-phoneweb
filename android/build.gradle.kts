@@ -1,3 +1,17 @@
+// VNumero (Fase  — push de chamada): classpath do plugin do Google
+// Services. Precisa vir ANTES de tudo, é o que permite o
+// `apply(plugin = "com.google.gms.google-services")` no
+// android/app/build.gradle.kts funcionar.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
 allprojects {
     repositories {
         google()

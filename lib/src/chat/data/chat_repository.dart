@@ -1,6 +1,6 @@
-import 'package:isar/isar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/local_db.dart';
 import '../../numbers/data/number_repository.dart';
 import '../domain/conversation_summary.dart';
 import '../domain/local_message.dart';
@@ -8,12 +8,12 @@ import '../domain/local_message.dart';
 class ChatRepository {
   ChatRepository({
     required this.supabase,
-    required this.isar,
+    required this.localDb,
     required this.numberRepository,
   });
 
   final SupabaseClient supabase;
-  final Isar isar;
+  final LocalDb localDb;
   final NumberRepository numberRepository;
 
   RealtimeChannel? _channel;
@@ -45,25 +45,19 @@ class ChatRepository {
   }
 
   Future<void> _cacheIncoming(Map<String, dynamic> row) async {
-    final local = LocalMessage()
-      ..remoteId = row['id'] as String
-      ..peerNumber = row['sender_number'] as String
-      ..peerUserId = row['sender_id'] as String
-      ..content = row['content'] as String
-      ..outgoing = false
-      ..sentAt = DateTime.parse(row['sent_at'] as String)
-      ..delivered = true
-      ..read = false;
+    final local = LocalMessage(
+      remoteId: row['id'] as String,
+      peerNumber: row['sender_number'] as String,
+      peerUserId: row['sender_id'] as String,
+      content: row['content'] as String,
+      outgoing: false,
+      sentAt: DateTime.parse(row['sent_at'] as String),
+      delivered: true,
+      read: false,
+    );
 
-    await isar.writeTxn(() async {
-      final exists = await isar.localMessages
-          .filter()
-          .remoteIdEqualTo(local.remoteId)
-          .findFirst();
-      if (exists == null) {
-        await isar.localMessages.put(local);
-      }
-    });
+    // Chave = remoteId -> put com a mesma chave já evita duplicar.
+    await localDb.messagesBox.put(local.remoteId, local.toMap());
 
     // Recebeu mensagem: reseta a contagem dos 7 dias de inatividade.
     await numberRepository.markInteraction();
@@ -108,49 +102,64 @@ class ChatRepository {
         .select()
         .single();
 
-    final local = LocalMessage()
-      ..remoteId = row['id'] as String
-      ..peerNumber = peerNumber
-      ..peerUserId = ownerId
-      ..content = content
-      ..outgoing = true
-      ..sentAt = DateTime.parse(row['sent_at'] as String)
-      ..delivered = true
-      ..read = true;
+    final local = LocalMessage(
+      remoteId: row['id'] as String,
+      peerNumber: peerNumber,
+      peerUserId: ownerId,
+      content: content,
+      outgoing: true,
+      sentAt: DateTime.parse(row['sent_at'] as String),
+      delivered: true,
+      read: true,
+    );
 
-    await isar.writeTxn(() async {
-      await isar.localMessages.put(local);
-    });
+    await localDb.messagesBox.put(local.remoteId, local.toMap());
 
     // Enviou mensagem: reseta a contagem dos 7 dias de inatividade.
     await numberRepository.markInteraction();
   }
 
+  List<LocalMessage> _allMessages() {
+    return localDb.messagesBox.values
+        .map((raw) => LocalMessage.fromMap(Map<String, dynamic>.from(raw)))
+        .toList();
+  }
+
   /// Mensagens de uma conversa específica, mais antiga -> mais recente.
-  Stream<List<LocalMessage>> watchThread(String peerNumber) {
-    return isar.localMessages
-        .filter()
-        .peerNumberEqualTo(peerNumber)
-        .sortBySentAt()
-        .watch(fireImmediately: true);
+  Stream<List<LocalMessage>> watchThread(String peerNumber) async* {
+    List<LocalMessage> compute() {
+      final list = _allMessages().where((m) => m.peerNumber == peerNumber).toList()
+        ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+      return list;
+    }
+
+    yield compute();
+    await for (final _ in localDb.messagesBox.watch()) {
+      yield compute();
+    }
   }
 
   /// Lista de conversas (uma por `peerNumber`), mais recente primeiro.
-  Stream<List<ConversationSummary>> watchConversations() {
-    return isar.localMessages
-        .where()
-        .sortBySentAtDesc()
-        .watch(fireImmediately: true)
-        .map(_groupIntoConversations);
+  Stream<List<ConversationSummary>> watchConversations() async* {
+    List<ConversationSummary> compute() =>
+        _groupIntoConversations(_allMessages());
+
+    yield compute();
+    await for (final _ in localDb.messagesBox.watch()) {
+      yield compute();
+    }
   }
 
   List<ConversationSummary> _groupIntoConversations(
-    List<LocalMessage> allMessagesDesc,
+    List<LocalMessage> allMessages,
   ) {
+    final sorted = [...allMessages]
+      ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
     final lastByPeer = <String, LocalMessage>{};
     final unreadByPeer = <String, int>{};
 
-    for (final message in allMessagesDesc) {
+    for (final message in sorted) {
       lastByPeer.putIfAbsent(message.peerNumber, () => message);
       if (!message.outgoing && !message.read) {
         unreadByPeer.update(
@@ -176,19 +185,15 @@ class ChatRepository {
   }
 
   Future<void> markThreadRead(String peerNumber) async {
-    final unread = await isar.localMessages
-        .filter()
-        .peerNumberEqualTo(peerNumber)
-        .readEqualTo(false)
-        .findAll();
+    final unread = _allMessages().where(
+      (m) => m.peerNumber == peerNumber && !m.read,
+    );
 
-    if (unread.isEmpty) return;
-
-    await isar.writeTxn(() async {
-      for (final message in unread) {
-        message.read = true;
-        await isar.localMessages.put(message);
-      }
-    });
+    for (final message in unread) {
+      await localDb.messagesBox.put(
+        message.remoteId,
+        message.copyWith(read: true).toMap(),
+      );
+    }
   }
 }

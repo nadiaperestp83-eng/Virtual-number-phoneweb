@@ -36,11 +36,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Gera os arquivos *.g.dart do Isar (LocalVirtualNumber,
-      # LocalMessage) — build falha sem isso.
-      - name: Generate Isar code
-        run: dart run build_runner build --delete-conflicting-outputs
-
       - name: Build APK
         run: |
           flutter build apk --release \

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "cloud.manaos.mnscloud.phoneweb"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34 // Alterado de flutter.compileSdkVersion para 34 fixo
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,7 +22,7 @@ android {
         // (MainActivity etc.).
         applicationId = "com.nvirtual.labs"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34 // Alinhado com o compileSdk
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

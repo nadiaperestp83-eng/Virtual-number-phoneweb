@@ -33,11 +33,10 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Fix: Injetar namespace no Isar (Compatibilidade Kotlin DSL para AGP 8+)
+// Fix: Injetar namespace no Isar de forma segura para AGP 8+ (Evita erro de projeto já avaliado)
 subprojects {
-    afterEvaluate {
-        val proj = this
-        val androidExt = proj.extensions.findByName("android")
+    plugins.withId("com.android.library") {
+        val androidExt = extensions.findByName("android")
         if (androidExt != null) {
             try {
                 val clazz = androidExt::class.java
@@ -45,10 +44,10 @@ subprojects {
                 val namespace = getNamespaceMethod.invoke(androidExt)
                 if (namespace == null) {
                     val setNamespaceMethod = clazz.getMethod("setNamespace", String::class.java)
-                    setNamespaceMethod.invoke(androidExt, proj.group.toString())
+                    setNamespaceMethod.invoke(androidExt, group.toString())
                 }
             } catch (e: Exception) {
-                // Ignora silenciosamente se o plugin não suportar namespace
+                // Ignora se não encontrar os métodos
             }
         }
     }

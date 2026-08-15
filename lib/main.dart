@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,14 +7,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'phoneweb_app.dart';
 import 'src/account/presentation/ddd_selection_screen.dart';
 import 'src/account/presentation/login_screen.dart';
+import 'src/calls/application/call_providers.dart';
 import 'src/chat/application/chat_providers.dart';
 import 'src/core/env.dart';
+import 'src/core/firebase_background_handler.dart';
 import 'src/core/local_db.dart';
 import 'src/core/supabase_providers.dart';
 import 'src/numbers/application/number_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase (push de chamada recebida). No Android, lê o
+  // google-services.json sozinho via o plugin Gradle.
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Supabase (login real e-mail/senha — sem sessão anônima).
   await Supabase.initialize(
@@ -70,9 +79,10 @@ class VNumeroGate extends ConsumerWidget {
           return const _GateApp(home: DddSelectionScreen());
         }
         // Usuário logado + número ativo: entra no app real do fork.
-        // (efeito colateral: assina o Realtime de mensagens — ver
-        // chatBootstrapProvider)
+        // (efeitos colaterais: assina o Realtime de mensagens e
+        // registra o token de push + listener do CallKit)
         ref.watch(chatBootstrapProvider);
+        ref.watch(callsBootstrapProvider);
         return const PhoneWebApp();
       },
     );

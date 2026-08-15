@@ -1,7 +1,7 @@
 name: vnumero_app
 description: >
   Número Virtual App-to-App com Chamadas (WebRTC) e Mensagens.
-  Base do softphone adaptada .
+  Base do softphone adaptada de manaoscloud/mnscloud-phoneweb.
 publish_to: "none"
 version: 0.1.0
 
@@ -15,9 +15,6 @@ dependencies:
   # Estado
   flutter_riverpod: ^2.5.1
 
-  # Navegação
-  go_router: ^14.2.0
-
   # Backend (Auth + Postgres + Realtime como sinalizador WebRTC)
   supabase_flutter: ^2.5.6
 
@@ -28,6 +25,11 @@ dependencies:
 
   # VoIP App-to-App (WebRTC puro, sem SIP — Fase 3)
   flutter_webrtc: ^0.11.5
+
+  # Usado por phoneweb_app.dart (código original do fork, preservado).
+  # ATENÇÃO: confirme a versão exata no pubspec.yaml real do fork antes
+  # de rodar `flutter pub get` — aqui é só um valor de partida.
+  sip_ua: ^0.5.13
 
   # Utilitários
   uuid: ^4.4.0

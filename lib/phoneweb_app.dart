@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sip_ua/sip_ua.dart';
 
+import 'src/account/presentation/account_settings_screen.dart';
 import 'src/account/webrtc_account.dart';
 import 'src/audio/keypad_tone_player.dart';
 import 'src/calls/application/call_providers.dart';
@@ -778,6 +779,7 @@ class MobilePhoneShell extends StatelessWidget {
       ),
       MobileHistoryView(entries: callHistory, onDial: onDialHistoryEntry),
       MobileMessagesView(),
+      const AccountSettingsScreen(),
     ];
 
     return Scaffold(
@@ -818,6 +820,11 @@ class MobilePhoneShell extends StatelessWidget {
             icon: Icon(Icons.chat_bubble_outline),
             selectedIcon: Icon(Icons.chat_bubble),
             label: 'Mensagens',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_circle_outlined),
+            selectedIcon: Icon(Icons.account_circle),
+            label: 'Eu',
           ),
         ],
       ),

@@ -9,6 +9,7 @@ import 'src/account/presentation/ddd_selection_screen.dart';
 import 'src/account/presentation/login_screen.dart';
 import 'src/calls/application/call_providers.dart';
 import 'src/chat/application/chat_providers.dart';
+import 'src/core/app_theme.dart';
 import 'src/core/env.dart';
 import 'src/core/firebase_background_handler.dart';
 import 'src/core/local_db.dart';
@@ -101,9 +102,9 @@ class _GateApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'VNumero',
+      title: 'TALK',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+      theme: buildAppTheme(),
       home: home,
     );
   }

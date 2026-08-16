@@ -315,17 +315,31 @@ class _PhoneWebHomePageState extends State<PhoneWebHomePage> {
     });
   }
 
+  // VNumero: garante feedback VISÍVEL (SnackBar) quando a chamada não
+  // pode ser feita — antes só atualizava `_lastEvent`, que fica num
+  // canto discreto e passa despercebido (o botão "parecia" não fazer
+  // nada).
+  void _showCallFeedback(String message) {
+    setState(() => _lastEvent = message);
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   Future<void> _makeCall() async {
     final rawNumber = NumberFormatter.onlyDigits(_dialNumber);
-    if (rawNumber.length != 11) {
-      setState(() => _lastEvent = 'Número inválido — use um número virtual da rede.');
+
+    if (!NumberFormatter.isValidVirtualNumber(rawNumber)) {
+      _showCallFeedback('Isso não é um número virtual válido da rede.');
       return;
     }
 
     final container = ProviderScope.containerOf(context, listen: false);
     final myNumber = await container
         .read(numberRepositoryProvider)
-        .getLocalActiveNumber();
+        .getActiveNumber();
     final user = container.read(currentUserProvider);
     if (myNumber == null || user == null || !mounted) return;
 
@@ -335,7 +349,7 @@ class _PhoneWebHomePageState extends State<PhoneWebHomePage> {
     if (!mounted) return;
 
     if (ownerId == null) {
-      setState(() => _lastEvent = 'Esse número não está ativo na rede agora.');
+      _showCallFeedback('Esse número não está ativo na rede agora.');
       return;
     }
 

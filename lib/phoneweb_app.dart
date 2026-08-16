@@ -9,6 +9,7 @@ import 'src/chat/application/chat_providers.dart';
 import 'src/chat/presentation/chat_thread_screen.dart';
 import 'src/chat/presentation/conversations_list_view.dart';
 import 'src/contacts/native_contacts_repository.dart';
+import 'src/numbers/application/number_providers.dart';
 import 'src/numbers/domain/number_formatter.dart';
 import 'src/contacts/phone_contact.dart';
 import 'src/storage/standalone_phoneweb_store.dart';
@@ -762,12 +763,7 @@ class MobilePhoneShell extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            MobileTopBar(
-              account: selectedAccount,
-              accountCount: accounts.length,
-              runtimeVersion: runtimeVersion,
-              onAccounts: () => _showAccountsSheet(context),
-            ),
+            MobileTopBar(runtimeVersion: runtimeVersion),
             Expanded(child: pages[currentIndex]),
           ],
         ),
@@ -1001,31 +997,25 @@ class _AccountsBottomSheetState extends State<AccountsBottomSheet> {
   }
 }
 
-class MobileTopBar extends StatelessWidget {
-  const MobileTopBar({
-    required this.account,
-    required this.accountCount,
-    required this.runtimeVersion,
-    required this.onAccounts,
-    super.key,
-  });
+class MobileTopBar extends ConsumerWidget {
+  const MobileTopBar({required this.runtimeVersion, super.key});
 
-  final WebRtcAccount? account;
-  final int accountCount;
   final RuntimeVersionInfo runtimeVersion;
-  final VoidCallback onAccounts;
 
   @override
-  Widget build(BuildContext context) {
-    final currentAccount = account;
-    final statusLabel = switch (currentAccount?.status) {
-      RegistrationStatus.registered => 'Registrado',
-      RegistrationStatus.registering => 'Registrando',
-      RegistrationStatus.failed => 'Falha',
-      RegistrationStatus.offline => 'Sem Serviço',
-      null => 'Sem Serviço',
-    };
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    // VNumero: este app não faz REGISTER de SIP (é WebRTC app2app puro),
+    // então o status daqui é o número virtual do usuário, não mais
+    // `WebRtcAccount.status`. O acesso à tela manual de conta SIP
+    // (`_showAccountsSheet` / "Add WebRTC account") foi retirado do
+    // fluxo do usuário final — não é algo que ele deveria configurar.
+    final numberAsync = ref.watch(activeNumberProvider);
+    final numberLabel = numberAsync.maybeWhen(
+      data: (number) => number?.formatted ?? 'MNSCloud',
+      orElse: () => 'MNSCloud',
+    );
 
     return Container(
       height: 82,
@@ -1036,40 +1026,21 @@ class MobileTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                onPressed: onAccounts,
-                icon: const Icon(Icons.menu, size: 32),
-              ),
-              if (accountCount == 0)
-                const Positioned(
-                  right: 7,
-                  top: 8,
-                  child: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: Colors.red,
-                    child: Text('!', style: TextStyle(fontSize: 11)),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 8),
+          Icon(Icons.call_outlined, size: 28, color: colorScheme.primary),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  statusLabel,
+                  numberLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
-                  currentAccount == null
-                      ? 'Nenhuma conta'
-                      : currentAccount.name,
+                  'MNSCloud · Online',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(

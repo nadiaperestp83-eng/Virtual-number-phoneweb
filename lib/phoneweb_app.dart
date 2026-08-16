@@ -5,6 +5,8 @@ import 'package:sip_ua/sip_ua.dart';
 
 import 'src/account/webrtc_account.dart';
 import 'src/audio/keypad_tone_player.dart';
+import 'src/calls/application/call_providers.dart';
+import 'src/calls/presentation/outgoing_call_screen.dart';
 import 'src/chat/application/chat_providers.dart';
 import 'src/chat/presentation/chat_thread_screen.dart';
 import 'src/chat/presentation/conversations_list_view.dart';
@@ -12,6 +14,8 @@ import 'src/contacts/native_contacts_repository.dart';
 import 'src/numbers/application/number_providers.dart';
 import 'src/numbers/domain/number_formatter.dart';
 import 'src/contacts/phone_contact.dart';
+import 'src/core/app_theme.dart';
+import 'src/core/supabase_providers.dart';
 import 'src/storage/standalone_phoneweb_store.dart';
 import 'src/version/runtime_version.dart';
 import 'src/voip/phoneweb_voip_controller.dart';
@@ -24,44 +28,17 @@ class PhoneWebApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MNSCloud PhoneWeb',
+      title: 'TALK',
       debugShowCheckedModeBanner: false,
-      theme: _phoneWebTheme(Brightness.light),
-      darkTheme: _phoneWebTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      // VNumero: tema único "Soft-Blue" (iOS 17 light), compartilhado
+      // com a Login/Onboarding (ver src/core/app_theme.dart). Light
+      // mode forçado — a paleta pedida é explicitamente light-only por
+      // enquanto; dark mode fica para uma próxima etapa se for pedido.
+      theme: buildAppTheme(),
+      themeMode: ThemeMode.light,
       home: const PhoneWebHomePage(),
     );
   }
-}
-
-ThemeData _phoneWebTheme(Brightness brightness) {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF0F766E),
-    brightness: brightness,
-  );
-  final dark = brightness == Brightness.dark;
-
-  return ThemeData(
-    colorScheme: colorScheme,
-    scaffoldBackgroundColor: dark
-        ? const Color(0xFF151515)
-        : const Color(0xFFF7F8F5),
-    useMaterial3: true,
-    inputDecorationTheme: InputDecorationTheme(
-      border: const OutlineInputBorder(),
-      filled: true,
-      fillColor: dark ? const Color(0xFF252525) : Colors.white,
-    ),
-    cardTheme: CardThemeData(
-      color: dark ? const Color(0xFF1F1F1F) : Colors.white,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-    ),
-  );
 }
 
 class PhoneWebHomePage extends StatefulWidget {
@@ -339,12 +316,45 @@ class _PhoneWebHomePageState extends State<PhoneWebHomePage> {
   }
 
   Future<void> _makeCall() async {
-    final account = _selectedAccount;
-    if (account == null || _dialNumber.trim().isEmpty) {
+    final rawNumber = NumberFormatter.onlyDigits(_dialNumber);
+    if (rawNumber.length != 11) {
+      setState(() => _lastEvent = 'Número inválido — use um número virtual da rede.');
       return;
     }
 
-    await _voip.makeCall(_dialNumber);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final myNumber = await container
+        .read(numberRepositoryProvider)
+        .getLocalActiveNumber();
+    final user = container.read(currentUserProvider);
+    if (myNumber == null || user == null || !mounted) return;
+
+    final ownerId = await container
+        .read(chatRepositoryProvider)
+        .resolveOwnerId(rawNumber);
+    if (!mounted) return;
+
+    if (ownerId == null) {
+      setState(() => _lastEvent = 'Esse número não está ativo na rede agora.');
+      return;
+    }
+
+    final callId = await container
+        .read(callSignalingRepositoryProvider)
+        .placeCall(
+          callerNumber: myNumber.number,
+          callerName: myNumber.formatted,
+          calleeUserId: ownerId,
+          calleeNumber: rawNumber,
+        );
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            OutgoingCallScreen(callId: callId, calleeLabel: rawNumber),
+      ),
+    );
   }
 
   Future<void> _openContactDialog({PhoneContact? contact}) async {
@@ -733,8 +743,6 @@ class MobilePhoneShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final selectedColor = colorScheme.primary;
-    final unselectedColor = colorScheme.onSurfaceVariant;
     final pages = [
       MobileDialerView(
         dialNumber: dialNumber,
@@ -768,47 +776,36 @@ class MobilePhoneShell extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBarTheme(
-        data: NavigationBarThemeData(
-          indicatorColor: Colors.transparent,
-          labelTextStyle: WidgetStateProperty.resolveWith(
-            (states) => TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: states.contains(WidgetState.selected)
-                  ? selectedColor
-                  : unselectedColor,
-            ),
+      // VNumero: navbar minimalista — usa o NavigationBarThemeData
+      // global (ver src/core/app_theme.dart: indicador sutil na cor
+      // primária #0A84FF, fundo sólido limpo), sem override manual de
+      // cores aqui.
+      bottomNavigationBar: NavigationBar(
+        height: 64,
+        selectedIndex: currentIndex,
+        onDestinationSelected: onTabChanged,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dialpad_outlined),
+            selectedIcon: Icon(Icons.dialpad),
+            label: 'Telefone',
           ),
-          iconTheme: WidgetStateProperty.resolveWith(
-            (states) => IconThemeData(
-              color: states.contains(WidgetState.selected)
-                  ? selectedColor
-                  : unselectedColor,
-            ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Contatos',
           ),
-        ),
-        child: NavigationBar(
-          height: 78,
-          backgroundColor: colorScheme.surfaceContainerHighest,
-          selectedIndex: currentIndex,
-          onDestinationSelected: onTabChanged,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.dialpad), label: 'Telefone'),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              label: 'Contatos',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.history),
-              label: 'Historico',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              label: 'Mensagens',
-            ),
-          ],
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Historico',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Mensagens',
+          ),
+        ],
       ),
     );
   }
@@ -1006,57 +1003,32 @@ class MobileTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // VNumero: este app não faz REGISTER de SIP (é WebRTC app2app puro),
-    // então o status daqui é o número virtual do usuário, não mais
-    // `WebRtcAccount.status`. O acesso à tela manual de conta SIP
-    // (`_showAccountsSheet` / "Add WebRTC account") foi retirado do
-    // fluxo do usuário final — não é algo que ele deveria configurar.
-    final numberAsync = ref.watch(activeNumberProvider);
-    final numberLabel = numberAsync.maybeWhen(
-      data: (number) => number?.formatted ?? 'MNSCloud',
-      orElse: () => 'MNSCloud',
-    );
-
+    // VNumero: barra compacta e discreta — sem número gigante, sem
+    // status de REGISTER de SIP (o app é WebRTC app2app puro). Só a
+    // marca + um indicador sutil de que está tudo certo.
     return Container(
-      height: 82,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
-      ),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      color: colorScheme.surface,
       child: Row(
         children: [
-          Icon(Icons.call_outlined, size: 28, color: colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  numberLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  'MNSCloud · Online',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+          Text(
+            'TALK',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              letterSpacing: 0.5,
             ),
           ),
-          SizedBox(
-            width: 82,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: VersionBadge(versionInfo: runtimeVersion, compact: true),
+          const SizedBox(width: 8),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFF34C759),
+              shape: BoxShape.circle,
             ),
           ),
+          const Spacer(),
+          VersionBadge(versionInfo: runtimeVersion, compact: true),
         ],
       ),
     );
@@ -1086,11 +1058,10 @@ class MobileDialerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final canCall =
-        selectedAccount != null &&
-        voip.registrationStatus == RegistrationStatus.registered &&
-        dialNumber.trim().isNotEmpty &&
-        !voip.hasActiveCall;
+    // VNumero: chamada não depende mais de conta SIP registrada — usa
+    // resolução de número virtual + Supabase (ver _makeCall). Só exige
+    // ter dígitos digitados e nenhuma chamada já em andamento.
+    final canCall = dialNumber.trim().isNotEmpty && !voip.hasActiveCall;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1102,16 +1073,6 @@ class MobileDialerView extends StatelessWidget {
             : compactHeight
             ? 56.0
             : 66.0;
-        final brandIconSize = tightHeight
-            ? 34.0
-            : compactHeight
-            ? 50.0
-            : 76.0;
-        final brandFontSize = tightHeight
-            ? 22.0
-            : compactHeight
-            ? 28.0
-            : 36.0;
         final numberFontSize = tightHeight
             ? 28.0
             : compactHeight
@@ -1166,32 +1127,7 @@ class MobileDialerView extends StatelessWidget {
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
                     child: dialNumber.isEmpty
-                        ? Column(
-                            key: const ValueKey('brand'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.wifi_calling_3_outlined,
-                                size: brandIconSize,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              SizedBox(
-                                height: tightHeight
-                                    ? 4
-                                    : compactHeight
-                                    ? 6
-                                    : 12,
-                              ),
-                              Text(
-                                'MNSCloud',
-                                style: TextStyle(
-                                  fontSize: brandFontSize,
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          )
+                        ? const SizedBox.shrink(key: ValueKey('empty'))
                         : Text(
                             key: const ValueKey('number'),
                             dialNumber,
@@ -1584,50 +1520,63 @@ class _MobileContactsViewState extends State<MobileContactsView> {
                         Divider(color: colorScheme.outlineVariant),
                     itemBuilder: (context, index) {
                       final contact = filteredContacts[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: colorScheme.primaryContainer,
-                          foregroundColor: colorScheme.onPrimaryContainer,
-                          child: Text(
-                            contact.name.isEmpty ? '?' : contact.name[0],
+                      // VNumero: selo "na rede" quando o número bate no
+                      // padrão de número virtual (checagem local, sem
+                      // round-trip ao Supabase por item da lista).
+                      final onNetwork = NumberFormatter.isValidVirtualNumber(
+                        NumberFormatter.onlyDigits(contact.number),
+                      );
+
+                      return Consumer(
+                        builder: (context, ref, _) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: colorScheme.primaryContainer,
+                            foregroundColor: colorScheme.onPrimaryContainer,
+                            child: Text(
+                              contact.name.isEmpty ? '?' : contact.name[0],
+                            ),
                           ),
-                        ),
-                        title: Text(contact.name),
-                        subtitle: Text(
-                          contact.company.isEmpty
-                              ? contact.number
-                              : '${contact.company} · ${contact.number}',
-                        ),
-                        isThreeLine:
-                            contact.source == PhoneContactSource.native,
-                        trailing: Wrap(
-                          children: [
-                            if (contact.source == PhoneContactSource.native)
-                              const Tooltip(
-                                message: 'Contato sincronizado do dispositivo',
-                                child: Icon(Icons.contacts_outlined, size: 20),
+                          title: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  contact.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            IconButton(
-                              onPressed: () => widget.onEditContact(contact),
-                              icon: const Icon(Icons.edit_outlined),
-                            ),
-                            // VNumero: inicia uma conversa com este
-                            // contato, se o número dele bater com um
-                            // número virtual ativo na rede.
-                            Consumer(
-                              builder: (context, ref, _) => IconButton(
-                                tooltip: 'Enviar mensagem',
-                                onPressed: () =>
-                                    _openChatWithContact(context, ref, contact),
-                                icon: const Icon(Icons.chat_bubble_outline),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => widget.onDialContact(contact),
-                              icon: const Icon(Icons.call_outlined),
-                            ),
-                          ],
+                              if (onNetwork) ...[
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.verified,
+                                  size: 16,
+                                  color: colorScheme.primary,
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Text(
+                            contact.company.isEmpty
+                                ? contact.number
+                                : '${contact.company} · ${contact.number}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          // Ação unificada: toque = chat (se estiver na
+                          // rede) ou ligar (fallback). Editar continua
+                          // acessível por toque longo, sem poluir a
+                          // linha com ícones extras.
+                          trailing: Icon(
+                            onNetwork
+                                ? Icons.chat_bubble_outline
+                                : Icons.call_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          onTap: () => onNetwork
+                              ? _openChatWithContact(context, ref, contact)
+                              : widget.onDialContact(contact),
+                          onLongPress: () => widget.onEditContact(contact),
                         ),
                       );
                     },
@@ -1836,7 +1785,7 @@ class AppHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'MNSCloud PhoneWeb',
+              'TALK',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -2363,11 +2312,8 @@ class DialerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canCall =
-        selectedAccount != null &&
-        voip.registrationStatus == RegistrationStatus.registered &&
-        dialNumber.trim().isNotEmpty &&
-        !voip.hasActiveCall;
+    // VNumero: mesma regra do mobile — não depende mais de conta SIP.
+    final canCall = dialNumber.trim().isNotEmpty && !voip.hasActiveCall;
     final colorScheme = Theme.of(context).colorScheme;
 
     return SectionCard(

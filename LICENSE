@@ -672,3 +672,13 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+
+
+Em complemento aos termos e condições da Licença Pública Geral GNU (GPLv3), aplicam-se as seguintes restrições adicionais relativas ao uso comercial:
+
+PROIBIÇÃO DE USO COMERCIAL: Fica expressamente proibida a utilização, redistribuição, reempacotamento ou comercialização deste software (no todo ou em partes) para fins lucrativos, comerciais ou monetização direta/indireta (incluindo vendas em lojas de aplicativos com cobrança, inserção de anúncios pagos, ou oferecimento como serviço proprietário pago).
+
+PERMISSÃO NÃO COMERCIAL (NON-COMMERCIAL): O fork, a cópia, a modificação e a redistribuição são totalmente livres e permitidos exclusivamente para fins não comerciais, educacionais, pessoais ou comunitários, desde que mantidos os créditos aos autores originais e que o código modificado permaneça sob esta mesma licença restritiva.
+
+PREVALÊNCIA: Em caso de conflito entre os termos padrão da GPLv3 e esta Cláusula Adicional de Restrição Comercial, prevalecerá sempre a restrição de proibição de uso comercial descrita nos itens 1 e 2 acima.

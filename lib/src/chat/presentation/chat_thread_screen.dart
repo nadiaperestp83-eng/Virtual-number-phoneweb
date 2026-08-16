@@ -48,7 +48,7 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
 
     final myNumber = await ref
         .read(numberRepositoryProvider)
-        .getLocalActiveNumber();
+        .getActiveNumber();
     final user = ref.read(currentUserProvider);
     if (myNumber == null || user == null) return;
 

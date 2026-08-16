@@ -16,7 +16,7 @@ final numberRepositoryProvider = Provider<NumberRepository>((ref) {
 /// Retorna `null` enquanto carrega ou se o usuário ainda não tem número.
 final activeNumberProvider = FutureProvider<LocalVirtualNumber?>((ref) async {
   final repo = ref.watch(numberRepositoryProvider);
-  return repo.getLocalActiveNumber();
+  return repo.getActiveNumber();
 });
 
 /// Estado (loading/data/error) da busca de opções de número por DDD.

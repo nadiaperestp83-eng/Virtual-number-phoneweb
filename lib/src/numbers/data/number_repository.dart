@@ -79,11 +79,57 @@ class NumberRepository {
     return local;
   }
 
-  /// Retorna o número ativo salvo localmente (ou null se não houver).
-  Future<LocalVirtualNumber?> getLocalActiveNumber() async {
-    final raw = localDb.virtualNumberBox.get(_activeKey);
-    if (raw == null) return null;
-    return LocalVirtualNumber.fromMap(Map<String, dynamic>.from(raw));
+  /// Retorna o número ativo do usuário. FONTE DE VERDADE = Supabase,
+  /// sempre consultado primeiro (não é "cache que a gente confia" —
+  /// é a identidade real da conta, e precisa refletir a regra dos 7
+  /// dias de expiração corretamente). O Hive só entra como fallback de
+  /// LEITURA quando não há rede — nunca decide sozinho que o usuário
+  /// tem um número.
+  Future<LocalVirtualNumber?> getActiveNumber() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    try {
+      final rows = await supabase
+          .from('virtual_numbers')
+          .select(
+            'id, ddd, number, formatted, activated_at, last_interaction_at',
+          )
+          .eq('owner_id', userId)
+          .eq('status', 'active')
+          .limit(1);
+
+      if (rows.isEmpty) {
+        // Servidor confirma: esta conta não tem número ativo agora
+        // (nunca teve, ou expirou pela regra dos 7 dias). Limpa
+        // qualquer cache local desatualizado — estado vira "Sem Conta"
+        // de verdade, não erro de cache.
+        await localDb.virtualNumberBox.delete(_activeKey);
+        return null;
+      }
+
+      final row = rows.first as Map<String, dynamic>;
+      final fromServer = LocalVirtualNumber(
+        remoteId: row['id'] as String,
+        ddd: row['ddd'] as String,
+        number: row['number'] as String,
+        formatted: row['formatted'] as String,
+        activatedAt: DateTime.parse(row['activated_at'] as String),
+        lastInteractionAt: DateTime.parse(
+          row['last_interaction_at'] as String,
+        ),
+      );
+
+      await localDb.virtualNumberBox.put(_activeKey, fromServer.toMap());
+      return fromServer;
+    } catch (_) {
+      // Sem rede / Supabase indisponível no momento: cai pro cache
+      // local só para não travar o app offline. Assim que a rede
+      // voltar, a próxima chamada revalida contra o servidor de novo.
+      final raw = localDb.virtualNumberBox.get(_activeKey);
+      if (raw == null) return null;
+      return LocalVirtualNumber.fromMap(Map<String, dynamic>.from(raw));
+    }
   }
 
   /// Deve ser chamado sempre que o usuário envia/recebe chamada ou
@@ -92,7 +138,7 @@ class NumberRepository {
   Future<void> markInteraction() async {
     await supabase.rpc('touch_my_number');
 
-    final current = await getLocalActiveNumber();
+    final current = await getActiveNumber();
     if (current != null) {
       final updated = current.copyWith(lastInteractionAt: DateTime.now());
       await localDb.virtualNumberBox.put(_activeKey, updated.toMap());

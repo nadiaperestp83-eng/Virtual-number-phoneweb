@@ -8,6 +8,7 @@ import 'src/account/webrtc_account.dart';
 import 'src/audio/keypad_tone_player.dart';
 import 'src/calls/application/call_providers.dart';
 import 'src/calls/application/voicemail_providers.dart';
+import 'src/calls/presentation/call_history_list_view.dart';
 import 'src/calls/presentation/outgoing_call_screen.dart';
 import 'src/calls/presentation/voicemail_feed_view.dart';
 import 'src/chat/application/chat_providers.dart';
@@ -384,6 +385,7 @@ class _PhoneWebHomePageState extends State<PhoneWebHomePage> {
             calleeNumber: rawNumber,
           );
       debugPrint('[VNumero:call] chamada criada com sucesso, call_id=$callId');
+      container.invalidate(callHistoryProvider);
       if (!mounted) return;
 
       await Navigator.of(context).push(
@@ -1703,24 +1705,15 @@ class MobileHistoryView extends ConsumerStatefulWidget {
 }
 
 class _MobileHistoryViewState extends ConsumerState<MobileHistoryView> {
-  final TextEditingController _searchController = TextEditingController();
   int _segment = 0; // 0 = Chamadas, 1 = Caixa postal
 
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredEntries = widget.entries
-        .where(
-          (entry) => _matchesCallHistoryEntry(entry, _searchController.text),
-        )
-        .toList();
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
       child: Column(
@@ -1748,40 +1741,24 @@ class _MobileHistoryViewState extends ConsumerState<MobileHistoryView> {
                 setState(() => _segment = selection.first),
           ),
           const SizedBox(height: 14),
-          if (_segment == 0) ...[
-            SearchBox(
-              controller: _searchController,
-              hintText: 'Buscar histórico',
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 14),
-          ],
           Expanded(
             child: _segment == 1
                 ? const VoicemailFeedView()
-                : widget.entries.isEmpty
-                ? const MobileEmptyTab(
-                    icon: Icons.history,
-                    title: 'Histórico vazio',
-                    message:
-                        'As chamadas realizadas e recebidas aparecerão aqui.',
-                  )
-                : filteredEntries.isEmpty
-                ? const MobileEmptyTab(
-                    icon: Icons.search_off_outlined,
-                    title: 'Nenhuma chamada encontrada',
-                    message: 'Tente buscar por número, conta, status ou SIP.',
-                  )
-                : ListView.separated(
-                    itemCount: filteredEntries.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final entry = filteredEntries[index];
-                      return CallHistoryTile(
-                        entry: entry,
-                        onDial: () => widget.onDial(entry),
-                      );
-                    },
+                // VNumero: histórico real, lido da tabela `calls` do
+                // Supabase — o antigo (`widget.entries`, baseado em
+                // SIP/`_voip`) nunca era populado pelas chamadas
+                // WebRTC app2app deste app.
+                : CallHistoryListView(
+                    onDial: (number) => widget.onDial(
+                      PhoneCallHistoryEntry(
+                        id: '',
+                        remoteIdentity: number,
+                        direction: PhoneCallDirection.outgoing,
+                        status: PhoneCallStatus.completed,
+                        startedAt: DateTime.now(),
+                        durationSeconds: 0,
+                      ),
+                    ),
                   ),
           ),
         ],

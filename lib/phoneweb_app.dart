@@ -331,45 +331,72 @@ class _PhoneWebHomePageState extends State<PhoneWebHomePage> {
 
   Future<void> _makeCall() async {
     final rawNumber = NumberFormatter.onlyDigits(_dialNumber);
+    debugPrint('[VNumero:call] número discado (bruto) = $rawNumber');
 
     if (!NumberFormatter.isValidVirtualNumber(rawNumber)) {
+      debugPrint('[VNumero:call] falhou: formato inválido');
       _showCallFeedback('Isso não é um número virtual válido da rede.');
       return;
     }
 
-    final container = ProviderScope.containerOf(context, listen: false);
-    final myNumber = await container
-        .read(numberRepositoryProvider)
-        .getActiveNumber();
-    final user = container.read(currentUserProvider);
-    if (myNumber == null || user == null || !mounted) return;
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      final myNumber = await container
+          .read(numberRepositoryProvider)
+          .getActiveNumber();
+      final user = container.read(currentUserProvider);
+      debugPrint(
+        '[VNumero:call] caller_id=${user?.id} caller_number=${myNumber?.number}',
+      );
 
-    final ownerId = await container
-        .read(chatRepositoryProvider)
-        .resolveOwnerId(rawNumber);
-    if (!mounted) return;
+      if (myNumber == null || user == null) {
+        debugPrint('[VNumero:call] falhou: sem número/usuário ativo');
+        _showCallFeedback('Não foi possível identificar sua conta. Tente relogar.');
+        return;
+      }
+      if (!mounted) return;
 
-    if (ownerId == null) {
-      _showCallFeedback('Esse número não está ativo na rede agora.');
-      return;
+      final ownerId = await container
+          .read(chatRepositoryProvider)
+          .resolveOwnerId(rawNumber);
+      debugPrint('[VNumero:call] callee_number=$rawNumber resolveu para callee_id=$ownerId');
+      if (!mounted) return;
+
+      if (ownerId == null) {
+        _showCallFeedback('Esse número não está ativo na rede agora.');
+        return;
+      }
+
+      if (ownerId == user.id) {
+        debugPrint('[VNumero:call] falhou: usuário tentou ligar para o próprio número');
+        _showCallFeedback('Esse é o seu próprio número — disque outro para testar.');
+        return;
+      }
+
+      final callId = await container
+          .read(callSignalingRepositoryProvider)
+          .placeCall(
+            callerNumber: myNumber.number,
+            callerName: myNumber.formatted,
+            calleeUserId: ownerId,
+            calleeNumber: rawNumber,
+          );
+      debugPrint('[VNumero:call] chamada criada com sucesso, call_id=$callId');
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              OutgoingCallScreen(callId: callId, calleeLabel: rawNumber),
+        ),
+      );
+    } catch (error, stackTrace) {
+      // VNumero: antes disso, qualquer exceção nessa cadeia (Supabase,
+      // Edge Function, rede) quebrava silenciosamente — o botão
+      // "parecia" não fazer nada. Agora sempre aparece um erro visível.
+      debugPrint('[VNumero:call] ERRO: $error\n$stackTrace');
+      _showCallFeedback('Falha ao iniciar a chamada: $error');
     }
-
-    final callId = await container
-        .read(callSignalingRepositoryProvider)
-        .placeCall(
-          callerNumber: myNumber.number,
-          callerName: myNumber.formatted,
-          calleeUserId: ownerId,
-          calleeNumber: rawNumber,
-        );
-    if (!mounted) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            OutgoingCallScreen(callId: callId, calleeLabel: rawNumber),
-      ),
-    );
   }
 
   Future<void> _openContactDialog({PhoneContact? contact}) async {

@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../domain/call_history_record.dart';
+
 /// Cria/atualiza linhas em `calls` e aciona a Edge Function que dispara
 /// o push de "chamada recebida". NÃO faz a sinalização WebRTC (SDP/ICE)
 /// — isso é o próximo passo, depois que a UI de chamada nativa estiver
@@ -79,5 +81,28 @@ class CallSignalingRepository {
         .stream(primaryKey: ['id'])
         .eq('id', callId)
         .map((rows) => rows.isEmpty ? <String, dynamic>{} : rows.first);
+  }
+
+  /// Histórico real de chamadas (feitas e recebidas), lido direto da
+  /// tabela `calls` — substitui o histórico antigo baseado em SIP
+  /// (`_callHistory`/`_voip`), que nunca era populado pelas chamadas
+  /// WebRTC app2app reais deste app.
+  Future<List<CallHistoryRecord>> fetchMyCallHistory() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final rows = await supabase
+        .from('calls')
+        .select()
+        .or('caller_id.eq.$userId,callee_id.eq.$userId')
+        .order('created_at', ascending: false)
+        .limit(100);
+
+    return (rows as List<dynamic>)
+        .map(
+          (row) =>
+              CallHistoryRecord.fromMap(row as Map<String, dynamic>, userId),
+        )
+        .toList();
   }
 }

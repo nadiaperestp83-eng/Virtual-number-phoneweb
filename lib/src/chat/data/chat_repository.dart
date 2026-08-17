@@ -18,6 +18,48 @@ class ChatRepository {
 
   RealtimeChannel? _channel;
 
+  /// Busca TODO o histórico de mensagens (enviadas E recebidas) direto
+  /// do Supabase e preenche o cache local. Sem isso, o app só via
+  /// mensagens que chegavam via Realtime enquanto estava aberto e
+  /// escutando — qualquer mensagem enviada com o destinatário offline/
+  /// app fechado nunca aparecia, mesmo já estando salva no banco.
+  /// Chamar uma vez no bootstrap, antes/junto de `startListening`.
+  Future<void> syncHistoryFromServer() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final rows = await supabase
+        .from('messages')
+        .select()
+        .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+        .order('sent_at');
+
+    for (final row in rows as List<dynamic>) {
+      final map = row as Map<String, dynamic>;
+      final outgoing = map['sender_id'] == userId;
+
+      final local = LocalMessage(
+        remoteId: map['id'] as String,
+        peerNumber: outgoing
+            ? map['receiver_number'] as String
+            : map['sender_number'] as String,
+        peerUserId: outgoing
+            ? map['receiver_id'] as String
+            : map['sender_id'] as String,
+        content: map['content'] as String,
+        outgoing: outgoing,
+        sentAt: DateTime.parse(map['sent_at'] as String),
+        delivered: map['delivered'] as bool? ?? true,
+        // Mensagem que EU enviei conta como já lida por mim; a que eu
+        // recebi mantém o `read` que já está salvo no banco.
+        read: outgoing ? true : (map['read'] as bool? ?? false),
+      );
+
+      // Chave = remoteId -> idempotente, não duplica em syncs repetidos.
+      await localDb.messagesBox.put(local.remoteId, local.toMap());
+    }
+  }
+
   /// Assina o canal Realtime do Supabase para receber mensagens novas
   /// endereçadas a este usuário. Chamar uma vez, assim que o usuário
   /// estiver logado e com número ativo (ver `chatBootstrapProvider`).

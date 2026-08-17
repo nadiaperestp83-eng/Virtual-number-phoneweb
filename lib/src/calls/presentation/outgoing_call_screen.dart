@@ -178,9 +178,15 @@ class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> {
           calleeNumber: widget.calleeLabel,
           durationSeconds: _recordingSeconds,
         );
+        // Bug conhecido corrigido: sem isso, a Caixa Postal só
+        // mostrava o recado novo depois de fechar e reabrir o app
+        // inteiro (o FutureProvider nunca era refeito sozinho).
+        container.invalidate(voicemailsProvider);
+        container.invalidate(unheardVoicemailCountProvider);
       }
 
       await callRepo.updateStatus(callId: widget.callId, status: 'missed');
+      container.invalidate(callHistoryProvider);
     } catch (_) {
       // Melhor esforço: mesmo se o upload falhar, a chamada já
       // encerra normalmente — não trava o usuário na tela.
@@ -193,6 +199,7 @@ class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> {
     await ref
         .read(callSignalingRepositoryProvider)
         .updateStatus(callId: widget.callId, status: 'missed');
+    ref.invalidate(callHistoryProvider);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -204,6 +211,7 @@ class _OutgoingCallScreenState extends ConsumerState<OutgoingCallScreen> {
     await ref
         .read(callSignalingRepositoryProvider)
         .updateStatus(callId: widget.callId, status: 'ended');
+    ref.invalidate(callHistoryProvider);
     if (mounted) Navigator.of(context).pop();
   }
 

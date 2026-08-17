@@ -7,7 +7,9 @@ import 'src/account/presentation/account_settings_screen.dart';
 import 'src/account/webrtc_account.dart';
 import 'src/audio/keypad_tone_player.dart';
 import 'src/calls/application/call_providers.dart';
+import 'src/calls/application/voicemail_providers.dart';
 import 'src/calls/presentation/outgoing_call_screen.dart';
+import 'src/calls/presentation/voicemail_feed_view.dart';
 import 'src/chat/application/chat_providers.dart';
 import 'src/chat/presentation/chat_thread_screen.dart';
 import 'src/chat/presentation/conversations_list_view.dart';
@@ -839,7 +841,18 @@ class MobilePhoneShell extends StatelessWidget {
             label: 'Contatos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
+            icon: Consumer(
+              builder: (context, ref, _) {
+                final unheard = ref
+                    .watch(unheardVoicemailCountProvider)
+                    .maybeWhen(data: (count) => count, orElse: () => 0);
+                return Badge(
+                  isLabelVisible: unheard > 0,
+                  label: Text('$unheard'),
+                  child: const Icon(Icons.history_outlined),
+                );
+              },
+            ),
             selectedIcon: Icon(Icons.history),
             label: 'Historico',
           ),
@@ -1675,7 +1688,7 @@ Future<void> _openChatWithContact(
   );
 }
 
-class MobileHistoryView extends StatefulWidget {
+class MobileHistoryView extends ConsumerStatefulWidget {
   const MobileHistoryView({
     required this.entries,
     required this.onDial,
@@ -1686,11 +1699,12 @@ class MobileHistoryView extends StatefulWidget {
   final ValueChanged<PhoneCallHistoryEntry> onDial;
 
   @override
-  State<MobileHistoryView> createState() => _MobileHistoryViewState();
+  ConsumerState<MobileHistoryView> createState() => _MobileHistoryViewState();
 }
 
-class _MobileHistoryViewState extends State<MobileHistoryView> {
+class _MobileHistoryViewState extends ConsumerState<MobileHistoryView> {
   final TextEditingController _searchController = TextEditingController();
+  int _segment = 0; // 0 = Chamadas, 1 = Caixa postal
 
   @override
   void dispose() {
@@ -1705,19 +1719,47 @@ class _MobileHistoryViewState extends State<MobileHistoryView> {
           (entry) => _matchesCallHistoryEntry(entry, _searchController.text),
         )
         .toList();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
       child: Column(
         children: [
-          SearchBox(
-            controller: _searchController,
-            hintText: 'Buscar histórico',
-            onChanged: (_) => setState(() {}),
+          // VNumero: seletor Chamadas / Caixa postal, com selo de
+          // recados não ouvidos.
+          SegmentedButton<int>(
+            segments: [
+              const ButtonSegment(value: 0, label: Text('Chamadas')),
+              ButtonSegment(
+                value: 1,
+                label: Consumer(
+                  builder: (context, ref, _) {
+                    final unheard = ref
+                        .watch(unheardVoicemailCountProvider)
+                        .maybeWhen(data: (count) => count, orElse: () => 0);
+                    if (unheard == 0) return const Text('Caixa postal');
+                    return Text('Caixa postal ($unheard)');
+                  },
+                ),
+              ),
+            ],
+            selected: {_segment},
+            onSelectionChanged: (selection) =>
+                setState(() => _segment = selection.first),
           ),
           const SizedBox(height: 14),
+          if (_segment == 0) ...[
+            SearchBox(
+              controller: _searchController,
+              hintText: 'Buscar histórico',
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 14),
+          ],
           Expanded(
-            child: widget.entries.isEmpty
+            child: _segment == 1
+                ? const VoicemailFeedView()
+                : widget.entries.isEmpty
                 ? const MobileEmptyTab(
                     icon: Icons.history,
                     title: 'Histórico vazio',

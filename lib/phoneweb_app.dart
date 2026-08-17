@@ -829,7 +829,7 @@ class MobilePhoneShell extends StatelessWidget {
         height: 64,
         selectedIndex: currentIndex,
         onDestinationSelected: onTabChanged,
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.dialpad_outlined),
             selectedIcon: Icon(Icons.dialpad),

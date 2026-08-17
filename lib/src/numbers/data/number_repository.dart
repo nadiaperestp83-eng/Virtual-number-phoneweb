@@ -122,10 +122,17 @@ class NumberRepository {
 
       await localDb.virtualNumberBox.put(_activeKey, fromServer.toMap());
       return fromServer;
-    } catch (_) {
+    } catch (error) {
       // Sem rede / Supabase indisponível no momento: cai pro cache
       // local só para não travar o app offline. Assim que a rede
       // voltar, a próxima chamada revalida contra o servidor de novo.
+      //
+      // IMPORTANTE: isso também "engole" erros de permissão (ex: GRANT
+      // faltando na tabela) — se isso acontecer, o log abaixo é o
+      // único jeito de perceber, porque o efeito colateral (cai pro
+      // cache vazio num reinstall) parece só "esqueceu meu número".
+      // ignore: avoid_print
+      print('[VNumero:getActiveNumber] falhou, usando cache local. Erro: $error');
       final raw = localDb.virtualNumberBox.get(_activeKey);
       if (raw == null) return null;
       return LocalVirtualNumber.fromMap(Map<String, dynamic>.from(raw));
@@ -143,5 +150,24 @@ class NumberRepository {
       final updated = current.copyWith(lastInteractionAt: DateTime.now());
       await localDb.virtualNumberBox.put(_activeKey, updated.toMap());
     }
+  }
+
+  /// Troca de número: só funciona se o número atual já estiver ativo
+  /// há 7 dias ou mais (o servidor valida e recusa se for cedo demais
+  /// — mensagem de erro do Postgres já vem pronta pra mostrar ao
+  /// usuário). Depois de liberar, limpa o cache local — a próxima
+  /// leitura de `activeNumberProvider` vai dar null e mandar o app
+  /// pro onboarding de escolha de novo número.
+  Future<void> releaseMyNumberForChange() async {
+    await supabase.rpc('release_my_number_for_change');
+    await localDb.virtualNumberBox.delete(_activeKey);
+  }
+
+  /// Desativa a conta: libera o número IMEDIATAMENTE (sem esperar os
+  /// 7 dias), sem apagar o login do Supabase Auth. Quem chama isso
+  /// (AccountSettingsScreen) é responsável por deslogar em seguida.
+  Future<void> deactivateAccount() async {
+    await supabase.rpc('deactivate_my_account');
+    await localDb.virtualNumberBox.delete(_activeKey);
   }
 }

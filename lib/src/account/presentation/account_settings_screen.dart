@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/supabase_providers.dart';
 import '../../numbers/application/number_providers.dart';
+import 'my_number_screen.dart';
 
 /// Aba "Eu" — conta & configurações. Estilo Apple moderno: cards
 /// arredondados, seções com título discreto, Inter (herdado do tema
@@ -76,7 +77,9 @@ class AccountSettingsScreen extends ConsumerWidget {
               icon: Icons.smartphone_outlined,
               title: 'Meus Números',
               subtitle: handle,
-              onTap: () => _showComingSoon(context, 'Meus Números'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MyNumberScreen()),
+              ),
               isLast: true,
             ),
           ],
@@ -124,6 +127,17 @@ class AccountSettingsScreen extends ConsumerWidget {
             child: const Text('Sair da conta'),
           ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () => _confirmDeactivate(context, ref),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            child: const Text('Desativar conta'),
+          ),
+        ),
       ],
     );
   }
@@ -132,6 +146,49 @@ class AccountSettingsScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$feature: em breve.')),
     );
+  }
+
+  Future<void> _confirmDeactivate(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Desativar conta?'),
+        content: const Text(
+          'Seu número virtual será liberado imediatamente para outras '
+          'pessoas (não precisa esperar os 7 dias de inatividade). Seu '
+          'login continua existindo — você pode entrar de novo e '
+          'escolher um número novo quando quiser.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Desativar',
+              style: TextStyle(color: Color(0xFFFF3B30)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(numberRepositoryProvider).deactivateAccount();
+      if (context.mounted) {
+        await ref.read(supabaseClientProvider).auth.signOut();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Não foi possível desativar: $e')));
+      }
+    }
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {

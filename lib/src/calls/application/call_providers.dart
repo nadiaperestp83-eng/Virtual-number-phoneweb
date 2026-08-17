@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_providers.dart';
 import '../data/call_signaling_repository.dart';
 import '../data/push_token_repository.dart';
+import '../domain/call_history_record.dart';
 import '../domain/incoming_call_payload.dart';
 import 'callkit_service.dart';
 
@@ -22,6 +23,13 @@ final callSignalingRepositoryProvider = Provider<CallSignalingRepository>((
   ref,
 ) {
   return CallSignalingRepository(supabase: ref.watch(supabaseClientProvider));
+});
+
+final callHistoryProvider = FutureProvider<List<CallHistoryRecord>>((
+  ref,
+) async {
+  final repo = ref.watch(callSignalingRepositoryProvider);
+  return repo.fetchMyCallHistory();
 });
 
 /// Única instância do serviço de CallKit para todo o app.
@@ -63,6 +71,7 @@ final callsBootstrapProvider = FutureProvider<void>((ref) async {
       case CallKitAction.other:
         break;
     }
+    ref.invalidate(callHistoryProvider);
   });
 
   // Mensagem de chamada chegando com o APP ABERTO (foreground). Em

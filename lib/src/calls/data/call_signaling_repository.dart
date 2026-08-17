@@ -38,10 +38,20 @@ class CallSignalingRepository {
 
     final callId = row['id'] as String;
 
-    await supabase.functions.invoke(
-      'trigger-call-push',
-      body: {'call_id': callId},
-    );
+    // O push é "melhor esforço": se a Edge Function falhar (fora do
+    // ar, sem token FCM cadastrado, etc.), a CHAMADA em si não pode
+    // morrer por causa disso — a linha em `calls` já existe e quem
+    // ligou já está esperando na tela "Chamando...", observando o
+    // status via Realtime. Callee sem push só não recebe o card nativo
+    // (mas ainda pode ver a chamada se o app dele estiver aberto).
+    try {
+      await supabase.functions.invoke(
+        'trigger-call-push',
+        body: {'call_id': callId},
+      );
+    } catch (error) {
+      // ignore: intencional — ver comentário acima.
+    }
 
     return callId;
   }

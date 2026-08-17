@@ -47,4 +47,16 @@ class NumberFormatter {
     final marker = digits.substring(3, 7); // posições do "6000"
     return digits[2] == '9' && marker == networkPrefix;
   }
+
+  /// Formato E.164 (+55DDDXXXXXXXXX) — só para uso EXTERNO/exibição
+  /// (ex: futura integração com serviços de telefonia real). NÃO usar
+  /// para buscar no Supabase: a coluna `number` em `virtual_numbers`
+  /// guarda o formato interno de 11 dígitos sem prefixo de país
+  /// (`11960006371`), e `resolve_active_number`/`list_available_numbers`
+  /// esperam exatamente esse formato — misturar os dois faz a busca não
+  /// achar ninguém.
+  static String toE164(String raw) {
+    final digits = onlyDigits(raw);
+    return '+55$digits';
+  }
 }

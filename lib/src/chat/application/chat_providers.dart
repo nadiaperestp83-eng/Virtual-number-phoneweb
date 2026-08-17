@@ -37,5 +37,9 @@ final chatBootstrapProvider = FutureProvider<void>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return;
   final repo = ref.watch(chatRepositoryProvider);
+  // Primeiro traz o histórico que já existe no Supabase (mensagens
+  // recebidas enquanto o app estava fechado/sem Realtime ativo), só
+  // depois liga o listener para mensagens novas.
+  await repo.syncHistoryFromServer();
   await repo.startListening(myUserId: user.id);
 });
